@@ -1,6 +1,9 @@
 'use client'
 import { ChangeEvent, useRef, useState } from "react";
+import { Tiny5 } from 'next/font/google';
 import React from "react";
+
+const font = Tiny5({ weight: "400"});
 
 export function CustomFilePicker({ accept = "image/*" }) {
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -20,16 +23,31 @@ export function CustomFilePicker({ accept = "image/*" }) {
       reader.onload = (event: ProgressEvent<FileReader>) => {
         const result = event.target?.result;
         if (typeof result === 'string') {
-          console.log("Result: ", result);
           const image = new Image();
+          const MAXIMUM_WIDTH = 80;
+          const MAXIMUM_HEIGHT = MAXIMUM_WIDTH * 9 / 16;
+          const clampDimensions = (width: number, height: number) => {
+            console.log("Width: ", width, " Height: ", height);
+            if (height > MAXIMUM_HEIGHT) {
+              const reducedWidth = Math.floor(width * MAXIMUM_HEIGHT / height);
+              console.log("Width after reduction: ", width, " Max Height: ", height);
+              return [reducedWidth, MAXIMUM_HEIGHT];
+            }
+            if (width > MAXIMUM_WIDTH) {
+              const reducedHeight = Math.floor(height * MAXIMUM_WIDTH / width);
+              console.log("Max Width: ", width, " Height after reduction: ", height);
+              return [MAXIMUM_WIDTH, reducedHeight];
+            }
+            return [width, height];
+          }
           image.onload = () => {
             const canvas = canvasRef.current;
             const context = canvas?.getContext('2d');
+            const [width, height] = clampDimensions(image.width, image.height);
             if (canvas && context) {
-              console.log("They are not null");
-              canvas.width = image.width;
-              canvas.height = image.height;
-              context.drawImage(image, 0, 0);
+              canvas.width = width;
+              canvas.height = height;
+              context.drawImage(image, 0, 0, width, height);
             }
           }
           image.src = result;
@@ -51,15 +69,15 @@ export function CustomFilePicker({ accept = "image/*" }) {
   }
 
   const onButtonClick = () => {
-    console.log('Button Clicked!');
 
     const canvas = canvasRef.current;
     const context = canvasRef.current?.getContext('2d');
     const toGrayScale = (r: number, g: number, b: number): number => 0.21 * r + 0.72 * g + 0.07 * b;
+
     if (canvas && context) {
 
       const imageData = context?.getImageData(0, 0, canvas.width, canvas.height);
-      let grayScales: number[]= [];
+      let grayScales: number[] = [];
       for (let i = 0; i < imageData.data.length; i += 4) {
         const r = imageData.data[i];
         const g = imageData.data[i + 1];
@@ -67,7 +85,7 @@ export function CustomFilePicker({ accept = "image/*" }) {
         // alpha is the 4th one, which is why we increment by 4
 
         const grayScale: number = toGrayScale(r, g, b);
-        imageData.data[i] = imageData.data[i+1] = imageData.data[i+2] = grayScale;
+        imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = grayScale;
         grayScales.push(grayScale);
       }
       // context.putImageData(imageData, 0, 0);
@@ -75,11 +93,27 @@ export function CustomFilePicker({ accept = "image/*" }) {
       const grayRamp = ' .:coPO?@■';
       const rampLength = grayRamp.length;
 
-      // const getCharactersForGrayScale = grayScale => 
+      const getCharactersForGrayScale = (grayScale: number): string => grayRamp[Math.ceil((rampLength - 1) * grayScale / 255)];
 
+      const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
 
+      const drawAscii = (grayScales: number[], width: number): void => {
+        const ascii = grayScales.reduce((asciiImage, grayScale, index) => {
+          let nextChars = getCharactersForGrayScale(grayScale);
+
+          if ((index + 1) % width === 0) {
+            nextChars += '\n';
+          }
+          return asciiImage + nextChars;
+        }, '');
+
+        if (asciiImage) {
+          asciiImage.textContent = ascii;
+        }
+      };
+
+      drawAscii(grayScales, canvas.width);
     }
-
   }
 
   return (
@@ -100,7 +134,11 @@ export function CustomFilePicker({ accept = "image/*" }) {
         <button onClick={onButtonClick} className="rounded-xl bg-blue-800 p-4 cursor-pointer hover:bg-blue-600">Convert to ASCII</button>
       </div>
       <div>
-        <canvas className="flex bg-gray-200" ref={canvasRef}></canvas>
+        <canvas className="flex" ref={canvasRef}></canvas>
+      </div>
+      <div>
+        <pre className={`leading-[0.55] tracking-tighter`} id="ascii"></pre>
+        {/* <pre className="dotgothic16-regular" id="ascii"></pre> */}
       </div>
     </div>
   )
