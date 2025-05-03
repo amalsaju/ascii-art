@@ -8,6 +8,9 @@ const font = Tiny5({ weight: "400" });
 
 export function CustomFilePicker({ accept = "image/*" }) {
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [outputType, setOutputType] = useState<string>("Text");
+  const [outputColor, setOutputColor] = useState<string>("color");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -96,61 +99,77 @@ export function CustomFilePicker({ accept = "image/*" }) {
 
       const getCharactersForGrayScale = (grayScale: number): string => grayRamp[Math.ceil((rampLength - 1) * grayScale / 255)];
 
-      const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
-      const asciiCanvasImage = document.querySelector("canvas#asciiCanvas") as HTMLCanvasElement;
+      if (outputType == "Text") {
 
-      const drawAscii = (grayScales: number[], width: number): void => {
-        const ascii = grayScales.reduce((asciiImage, grayScale, index) => {
-          let nextChars = getCharactersForGrayScale(grayScale);
+        const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
 
-          if ((index + 1) % width === 0) {
-            nextChars += '\n';
-          }
-          return asciiImage + nextChars;
-        }, '');
+        const drawAscii = (grayScales: number[], width: number): void => {
+          const ascii = grayScales.reduce((asciiImage, grayScale, index) => {
+            let nextChars = getCharactersForGrayScale(grayScale);
 
-        if (asciiImage) {
-          asciiImage.textContent = ascii;
-        }
-      };
-
-      drawAscii(grayScales, canvas.width);
-
-      const drawCanvasAscii = (grayScales: number[], width: number): void => {
-        const ctx = asciiCanvasImage.getContext('2d');
-        const charWidth = 11;
-        const lineHeight = 16;
-        let imageDataCount = 0;
-        asciiCanvasImage.width = 720;
-        asciiCanvasImage.height = 720;
-        if (ctx) {
-          ctx.textBaseline = "top";
-          ctx.font = "16px ui-monospace"
-          let colIndex = 0;
-          let rowIndex = 0;
-          let rowLength = 90;
-          for (let i = 0; i < grayScales.length; i++) {
-            if ((i + 1) % width == 0) {
-              colIndex = 0;
+            if ((index + 1) % width === 0) {
+              nextChars += '\n';
             }
+            return asciiImage + nextChars;
+          }, '');
 
-            ctx.fillStyle = `rgb(
+          if (asciiImage) {
+            asciiImage.textContent = ascii;
+          }
+        };
+
+        drawAscii(grayScales, canvas.width);
+
+      } else {
+
+        const asciiCanvasImage = document.querySelector("canvas#asciiCanvas") as HTMLCanvasElement;
+
+        const drawCanvasAscii = (grayScales: number[], width: number): void => {
+          const ctx = asciiCanvasImage.getContext('2d');
+          const charWidth = 11;
+          const lineHeight = 16;
+          let imageDataCount = 0;
+          asciiCanvasImage.width = 720;
+          asciiCanvasImage.height = 720;
+          if (ctx) {
+            ctx.textBaseline = "top";
+            ctx.font = "16px ui-monospace"
+            let colIndex = 0;
+            let rowIndex = 0;
+            let rowLength = 90;
+            for (let i = 0; i < grayScales.length; i++) {
+              if ((i + 1) % width == 0) {
+                colIndex = 0;
+              }
+
+              if (outputColor == "color") {
+
+                ctx.fillStyle = `rgb(
                   ${imageData.data[imageDataCount]}
                   ${imageData.data[imageDataCount + 1]}
                   ${imageData.data[imageDataCount + 2]}
               )`;
 
-            imageDataCount += 4; // image data also contains alpha values
-            // console.log("Character: ", getCharactersForGrayScale(grayScales[i]), " Color: ", ctx.fillStyle);
-            ctx.fillText(getCharactersForGrayScale(grayScales[i]), colIndex * charWidth, rowIndex * lineHeight);
+                imageDataCount += 4; // image data also contains alpha values
+              } else {
 
-            colIndex++;
-            rowIndex = i / rowLength;
+                ctx.fillStyle = `rgb(
+                ${grayScales[imageDataCount]}
+                ${grayScales[imageDataCount]} 
+                ${grayScales[imageDataCount]}
+                )`;
+                imageDataCount += 1;
+              }
+              // console.log("Character: ", getCharactersForGrayScale(grayScales[i]), " Color: ", ctx.fillStyle);
+              ctx.fillText(getCharactersForGrayScale(grayScales[i]), colIndex * charWidth, rowIndex * lineHeight);
 
+              colIndex++;
+              rowIndex = i / rowLength;
+            }
           }
-        }
-      };
-      drawCanvasAscii(grayScales, canvas.width);
+        };
+        drawCanvasAscii(grayScales, canvas.width);
+      }
     }
   }
 
@@ -178,6 +197,24 @@ export function CustomFilePicker({ accept = "image/*" }) {
           <input className="hidden" type="file" ref={fileInputRef} accept={accept} onChange={updateImage} />
         </div>
       </div>
+      <div className="flex gap-4">
+        <div>
+          <input type="radio" value="Image" name="outputType" checked={outputType == "Image"} onChange={() => setOutputType("Image")} /> Image
+        </div>
+        <div>
+          <input type="radio" value="Text" name="outputType" checked={outputType == "Text"} onChange={() => setOutputType("Text")} /> Text
+        </div>
+      </div>
+      {outputType == "Image" &&
+        <div className="flex gap-4">
+          <div>
+            <input type="radio" value="grayscale" name="outputTypeColor" checked={outputColor == "grayscale"} onChange={() => setOutputColor("grayscale")} /> Grayscale
+          </div>
+          <div>
+            <input type="radio" value="color" name="outputTypeColor" checked={outputColor == "color"} onChange={() => setOutputColor("color")} /> Color
+          </div>
+        </div>
+      }
       <div className="my-10">
         <button onClick={onButtonClick} className="rounded-xl bg-blue-800 p-4 cursor-pointer hover:bg-blue-600">Convert to ASCII</button>
       </div>
@@ -185,26 +222,28 @@ export function CustomFilePicker({ accept = "image/*" }) {
         <canvas className="hidden" ref={canvasRef}></canvas>
       </div>
       <div className="flex gap-4">
-        <div className="flex flex-col items-center gap-2">
-          <div><h1 className="text-xl font-bold">Text Version</h1> </div>
-          <div>
-            <pre className={`leading-[1] tracking-tighter`} id="ascii"></pre>
-          </div>
-          <div className="">
-            <button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-4" onClick={copyTextAndNotify}>Copy ascii text to clipboard</button>
-            <ToastContainer />
-          </div>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div><h1 className="text-xl font-bold"> Image Version</h1></div>
-          <div>
-            <canvas id="asciiCanvas"></canvas>
-          </div>
-          <div className="">
-            <button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-4" >Copy ascii image to clipboard</button>
-            <ToastContainer />
-          </div>
-        </div>
+        {outputType == "Text" &&
+          <div className="flex flex-col items-center gap-2">
+            <div><h1 className="text-xl font-bold">Text Version</h1> </div>
+            <div>
+              <pre className={`leading-[1] tracking-tighter`} id="ascii"></pre>
+            </div>
+            <div className="">
+              <button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-4" onClick={copyTextAndNotify}>Copy ascii text to clipboard</button>
+              <ToastContainer />
+            </div>
+          </div>}
+        {outputType == "Image" &&
+          <div className="flex flex-col items-center gap-2">
+            <div><h1 className="text-xl font-bold"> Image Version</h1></div>
+            <div>
+              <canvas id="asciiCanvas"></canvas>
+            </div>
+            <div className="">
+              <button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-4" >Copy ascii image to clipboard</button>
+              <ToastContainer />
+            </div>
+          </div>}
       </div>
     </div>
   )
