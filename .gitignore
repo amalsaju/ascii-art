@@ -136,4 +136,4 @@ dist
 .pnp.*
 
 # Files I don't want tracked
-src/app/todo.md
+todo.md
