@@ -1,7 +1,7 @@
-### ROADMAP
+## ROADMAP
 ---
 
-### v1.0
+### v1.0 - DONE
  - will have basic ascii with color and grayscale and with the ability to copy or download as image
 ---
 ### v1.1  

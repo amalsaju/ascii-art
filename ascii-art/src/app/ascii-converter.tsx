@@ -1,23 +1,32 @@
-import { ChangeEvent, useRef, useState } from "react";
+'use client'
+import { ChangeEvent, useCallback, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
+import { BarLoader } from "react-spinners";
 
-export function CustomFilePicker(): React.JSX.Element {
+export function AsciiConverter(): React.JSX.Element {
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [outputColor, setOutputColor] = useState<string>("color");
 
 	const [converted, setConverted] = useState<boolean>(false);
+	const [loading, setLoading] = useState<boolean>(false);
+
+	const color = "#ffffff";
 
 	// Use this for the next version for custom values 
 	// const [textFontSize, setTextFontSize] = useState<number>(8);
 	// const [textLineHeight, setTextLineHeight] = useState<number>(textFontSize * 1.2);
 	// const [textLetterSpacing, setTextLetterSpacing] = useState<number>(0);
+	// const [noOfCharacters, setNoOfCharacters] = useState<number>(50);
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const preRef = useRef<HTMLPreElement>(null);
+	const outputCanvasRef = useRef<HTMLCanvasElement>(null);
 
 	const textFontSize = 8;
 	const textLineHeight = textFontSize * 1.2;
 	const textLetterSpacing = 0;
+	const noOfCharacters = 100;
 
 	const handleImageUploadClick = () => {
 		fileInputRef.current?.click();
@@ -51,6 +60,16 @@ export function CustomFilePicker(): React.JSX.Element {
 		return getTextFontHeight() / getTextFontWidth();
 	}
 
+	const MAXIMUM_WIDTH = noOfCharacters; // This is essentially the number of characters wide
+	const clampDimensions = (width: number, height: number) => {
+		// MAXIMUM_HEIGHT = MAXIMUM_WIDTH * height / width;
+		console.log("Font Ratio", getTextFontRatio());
+		console.log("Image width: ", width, " Image Height: ", height);
+		console.log("Canvas Width: ", width, " Canvas Height: ", height);
+		const reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
+		console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
+		return [MAXIMUM_WIDTH, reducedHeight];
+	}
 	const updateImage = (event: ChangeEvent<HTMLInputElement>) => {
 		if (event.target.files && event.target.files[0]) {
 			const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
@@ -63,16 +82,7 @@ export function CustomFilePicker(): React.JSX.Element {
 				const result = event.target?.result;
 				if (typeof result === 'string') {
 					const image = new Image();
-					const MAXIMUM_WIDTH = 150;
-					const clampDimensions = (width: number, height: number) => {
-						// MAXIMUM_HEIGHT = MAXIMUM_WIDTH * height / width;
-						console.log("Font Ratio", getTextFontRatio());
-						console.log("Image width: ", width, " Image Height: ", height);
-						console.log("Canvas Width: ", width, " Canvas Height: ", height);
-						const reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
-						console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
-						return [MAXIMUM_WIDTH, reducedHeight];
-					}
+
 					image.onload = () => {
 						const canvas = canvasRef.current;
 						const context = canvas?.getContext('2d');
@@ -133,7 +143,7 @@ export function CustomFilePicker(): React.JSX.Element {
 				const span = document.createElement('span');
 				span.textContent = grayRamp[i];
 				asciiImage.appendChild(span);
-				console.log("Width of :", grayRamp[i], " is : ", span.getBoundingClientRect().width);
+				// console.log("Width of :", grayRamp[i], " is : ", span.getBoundingClientRect().width);
 				asciiImage.removeChild(span);
 			}
 
@@ -204,21 +214,58 @@ export function CustomFilePicker(): React.JSX.Element {
 		}
 	}
 
-	// const downloadImage = () => {
-	//     const asciiImage = document.querySelector("canvas#asciiCanvas") as HTMLCanvasElement;
-	//     const image = asciiImage.toDataURL('image/*');
-	//     const link = document.createElement('a');
+	const downloadImage = () => {
 
-	//     if (typeof link.download === 'string') {
-	//         link.href = image;
-	//         link.download = 'ascii_image.png';
-	//         document.body.appendChild(link);
-	//         link.click();
-	//         document.body.removeChild(link);
-	//     } else {
-	//         window.open(image);
-	//     }
-	// }
+		const canvas = outputCanvasRef.current;
+		if (!canvas) return;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+		const currentPre = preRef.current;
+		if (!currentPre) return;
+
+		let characterWidth = (ctx.measureText("█").actualBoundingBoxLeft + ctx.measureText("█").actualBoundingBoxRight);
+		let characterHeight = (ctx.measureText("█").actualBoundingBoxAscent + ctx.measureText("█").actualBoundingBoxDescent) + 1;
+
+		canvas.width = noOfCharacters * characterWidth;
+		canvas.height = canvas.width * (currentPre.clientHeight / currentPre.clientWidth);
+
+		// console.log("Pretag ratio: ", currentPre.clientWidth / currentPre.clientHeight, " Canvas ratio: ", canvas.width / canvas.height);
+
+		const heightScale = canvas.height / (characterHeight * (currentPre.innerText.length / noOfCharacters));
+		ctx.setTransform(1, 0, 0, heightScale, 0, 0);
+		ctx.imageSmoothingEnabled = false;
+		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width);
+
+		let currentChildCount = 0;
+		let characterCount = 0;
+		while (currentChildCount < currentPre.children.length) {
+
+			// console.log("Current Node:", currentPre.children[currentChildCount].nodeName);
+			if (currentPre.children[currentChildCount].nodeName.toLowerCase() === "span") {
+
+				const node = currentPre.children[currentChildCount] as HTMLSpanElement;
+				ctx.font = `${textFontSize}`;
+				ctx.fillStyle = node.style.color;
+				ctx.textBaseline = 'top';
+				ctx.fillText(node.textContent || "", (characterCount % noOfCharacters) * characterWidth, (Math.floor(characterCount / noOfCharacters) * characterHeight));
+				console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
+
+				characterCount++;
+			} else {
+				// This is the br element
+
+			}
+			currentChildCount++;
+		}
+
+		document.body.appendChild(canvas);
+
+		setLoading(false);
+		let link = document.createElement('a');
+		link.download = 'ascii-image.png';
+		link.href = canvas.toDataURL();;
+		link.click();
+	};
 
 	return (
 		<div className="flex flex-col gap-[1.5] p-[2.5] mt-10 justify-center items-center">
@@ -256,25 +303,38 @@ export function CustomFilePicker(): React.JSX.Element {
 			<div>
 				<canvas className="hidden" ref={canvasRef}></canvas>
 			</div>
-
+			<div>
+				<canvas className="hidden" ref={outputCanvasRef}></canvas>
+			</div>
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<pre
-							style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
-							id="ascii"></pre>
+						<div className="flex justify-center">
+							<pre ref={preRef}
+								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
+								id="ascii"></pre>
+						</div>
 					</div>
 					{converted &&
 						<div className="flex flex-row gap-2 mx-4">
-							{/* <div className="">
+							<div className="">
 								<button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-2 md:p-4" onClick={downloadImage}>Download as image</button>
-								<ToastContainer />
-							</div> */}
+							</div>
 							<div className="">
 								<button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-2 md:p-4" onClick={copyTextAndNotify}>Copy to clipboard</button>
-								<ToastContainer />
+								<ToastContainer autoClose={2000} />
 							</div>
 						</div>}
+					{loading && (
+						<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+							<div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
+								<p className="mt-4 text-gray-800 font-semibold">
+									ASCII to image conversion in progress...
+								</p><br />
+								<BarLoader width={200} height={5} loading={true} color="black" />
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>
