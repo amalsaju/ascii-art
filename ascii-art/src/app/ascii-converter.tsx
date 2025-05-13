@@ -1,14 +1,11 @@
 'use client'
 import { ChangeEvent, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
-import { BarLoader } from "react-spinners";
-
 export function AsciiConverter(): React.JSX.Element {
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [outputColor, setOutputColor] = useState<string>("color");
 
 	const [converted, setConverted] = useState<boolean>(false);
-	const [loading, setLoading] = useState<boolean>(false);
 
 	// Use this for the next version for custom values 
 	// const [textFontSize, setTextFontSize] = useState<number>(8);
@@ -258,7 +255,6 @@ export function AsciiConverter(): React.JSX.Element {
 
 		document.body.appendChild(canvas);
 
-		setLoading(false);
 		const link = document.createElement('a');
 		link.download = 'ascii-image.png';
 		link.href = canvas.toDataURL();;
@@ -323,16 +319,6 @@ export function AsciiConverter(): React.JSX.Element {
 								<ToastContainer autoClose={2000} />
 							</div>
 						</div>}
-					{loading && (
-						<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-							<div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
-								<p className="mt-4 text-gray-800 font-semibold">
-									ASCII to image conversion in progress...
-								</p><br />
-								<BarLoader width={200} height={5} loading={true} color="black" />
-							</div>
-						</div>
-					)}
 				</div>
 			</div>
 		</div>
