@@ -61,7 +61,13 @@ export function AsciiConverter(): React.JSX.Element {
 		console.log("Font Ratio", getTextFontRatio());
 		console.log("Image width: ", width, " Image Height: ", height);
 		console.log("Canvas Width: ", width, " Canvas Height: ", height);
-		const reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
+		console.log(navigator.userAgent.toLowerCase().indexOf("android"));
+		let reducedHeight;
+		if (navigator.userAgent.toLowerCase().indexOf("android") > 0) {
+			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH);
+		} else {
+			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
+		}
 		console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
 		return [MAXIMUM_WIDTH, reducedHeight];
 	}
@@ -243,7 +249,7 @@ export function AsciiConverter(): React.JSX.Element {
 				ctx.fillStyle = node.style.color;
 				ctx.textBaseline = 'top';
 				ctx.fillText(node.textContent || "", (characterCount % noOfCharacters) * characterWidth, (Math.floor(characterCount / noOfCharacters) * characterHeight));
-				console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
+				// console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
 
 				characterCount++;
 			} else {
@@ -252,8 +258,6 @@ export function AsciiConverter(): React.JSX.Element {
 			}
 			currentChildCount++;
 		}
-
-		document.body.appendChild(canvas);
 
 		const link = document.createElement('a');
 		link.download = 'ascii-image.png';
@@ -302,9 +306,9 @@ export function AsciiConverter(): React.JSX.Element {
 			</div>
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
-					<div className="mb-5 h-[300px] w-[400px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="flex justify-center">
-							<pre ref={preRef}
+					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
+						<div className="flex">
+							<pre ref={preRef} className="items-center"
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
 						</div>
