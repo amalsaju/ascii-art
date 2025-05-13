@@ -302,7 +302,7 @@ export function AsciiConverter(): React.JSX.Element {
 			</div>
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
-					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
+					<div className="mb-5 h-[300px] w-[400px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
 						<div className="flex justify-center">
 							<pre ref={preRef}
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
