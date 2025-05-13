@@ -235,6 +235,8 @@ export function AsciiConverter(): React.JSX.Element {
 		const heightScale = canvas.height / (characterHeight * (currentPre.innerText.length / noOfCharacters));
 		ctx.setTransform(1, 0, 0, heightScale, 0, 0);
 		ctx.imageSmoothingEnabled = false;
+		ctx.fillStyle = "black";
+		ctx.fillRect(0,0, canvas.width, canvas.height);
 		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width);
 
 		let currentChildCount = 0;
