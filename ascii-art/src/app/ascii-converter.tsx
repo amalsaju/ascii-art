@@ -1,14 +1,11 @@
 'use client'
 import { ChangeEvent, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
-import { BarLoader } from "react-spinners";
-
 export function AsciiConverter(): React.JSX.Element {
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [outputColor, setOutputColor] = useState<string>("color");
 
 	const [converted, setConverted] = useState<boolean>(false);
-	const [loading, setLoading] = useState<boolean>(false);
 
 	// Use this for the next version for custom values 
 	// const [textFontSize, setTextFontSize] = useState<number>(8);
@@ -64,7 +61,13 @@ export function AsciiConverter(): React.JSX.Element {
 		console.log("Font Ratio", getTextFontRatio());
 		console.log("Image width: ", width, " Image Height: ", height);
 		console.log("Canvas Width: ", width, " Canvas Height: ", height);
-		const reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
+		console.log(navigator.userAgent.toLowerCase().indexOf("android"));
+		let reducedHeight;
+		if (navigator.userAgent.toLowerCase().indexOf("android") > 0) {
+			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH);
+		} else {
+			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
+		}
 		console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
 		return [MAXIMUM_WIDTH, reducedHeight];
 	}
@@ -232,6 +235,8 @@ export function AsciiConverter(): React.JSX.Element {
 		const heightScale = canvas.height / (characterHeight * (currentPre.innerText.length / noOfCharacters));
 		ctx.setTransform(1, 0, 0, heightScale, 0, 0);
 		ctx.imageSmoothingEnabled = false;
+		ctx.fillStyle = "black";
+		ctx.fillRect(0,0, canvas.width, canvas.height);
 		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width);
 
 		let currentChildCount = 0;
@@ -246,7 +251,7 @@ export function AsciiConverter(): React.JSX.Element {
 				ctx.fillStyle = node.style.color;
 				ctx.textBaseline = 'top';
 				ctx.fillText(node.textContent || "", (characterCount % noOfCharacters) * characterWidth, (Math.floor(characterCount / noOfCharacters) * characterHeight));
-				console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
+				// console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
 
 				characterCount++;
 			} else {
@@ -256,9 +261,6 @@ export function AsciiConverter(): React.JSX.Element {
 			currentChildCount++;
 		}
 
-		document.body.appendChild(canvas);
-
-		setLoading(false);
 		const link = document.createElement('a');
 		link.download = 'ascii-image.png';
 		link.href = canvas.toDataURL();;
@@ -307,8 +309,8 @@ export function AsciiConverter(): React.JSX.Element {
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="flex justify-center">
-							<pre ref={preRef}
+						<div className="flex">
+							<pre ref={preRef} className="items-center"
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
 						</div>
@@ -323,16 +325,6 @@ export function AsciiConverter(): React.JSX.Element {
 								<ToastContainer autoClose={2000} />
 							</div>
 						</div>}
-					{loading && (
-						<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-							<div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
-								<p className="mt-4 text-gray-800 font-semibold">
-									ASCII to image conversion in progress...
-								</p><br />
-								<BarLoader width={200} height={5} loading={true} color="black" />
-							</div>
-						</div>
-					)}
 				</div>
 			</div>
 		</div>
