@@ -1,5 +1,5 @@
 'use client'
-import { ChangeEvent, useCallback, useRef, useState } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import { BarLoader } from "react-spinners";
 
@@ -9,8 +9,6 @@ export function AsciiConverter(): React.JSX.Element {
 
 	const [converted, setConverted] = useState<boolean>(false);
 	const [loading, setLoading] = useState<boolean>(false);
-
-	const color = "#ffffff";
 
 	// Use this for the next version for custom values 
 	// const [textFontSize, setTextFontSize] = useState<number>(8);
@@ -223,8 +221,8 @@ export function AsciiConverter(): React.JSX.Element {
 		const currentPre = preRef.current;
 		if (!currentPre) return;
 
-		let characterWidth = (ctx.measureText("█").actualBoundingBoxLeft + ctx.measureText("█").actualBoundingBoxRight);
-		let characterHeight = (ctx.measureText("█").actualBoundingBoxAscent + ctx.measureText("█").actualBoundingBoxDescent) + 1;
+		const characterWidth = (ctx.measureText("█").actualBoundingBoxLeft + ctx.measureText("█").actualBoundingBoxRight);
+		const characterHeight = (ctx.measureText("█").actualBoundingBoxAscent + ctx.measureText("█").actualBoundingBoxDescent) + 1;
 
 		canvas.width = noOfCharacters * characterWidth;
 		canvas.height = canvas.width * (currentPre.clientHeight / currentPre.clientWidth);
@@ -261,7 +259,7 @@ export function AsciiConverter(): React.JSX.Element {
 		document.body.appendChild(canvas);
 
 		setLoading(false);
-		let link = document.createElement('a');
+		const link = document.createElement('a');
 		link.download = 'ascii-image.png';
 		link.href = canvas.toDataURL();;
 		link.click();
