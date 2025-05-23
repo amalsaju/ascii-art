@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Roboto_Mono } from 'next/font/google';
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "ASCII Art Generator",
@@ -20,6 +21,7 @@ export default function RootLayout({
     <html lang="en" className={roboto.className}>
       <body>
         {children}
+        <Analytics />
       </body>
     </html>
   );
