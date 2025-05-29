@@ -105,41 +105,6 @@ export function AsciiConverter(): React.JSX.Element {
 		}
 	}
 
-	const updateImageWithSettings = () => {
-		const canvas = canvasRef.current;
-		const context = canvas?.getContext('2d');
-		const image = document.querySelector("img#uploadedImg") as HTMLImageElement;
-		const [width, height] = clampDimensions(image.width, image.height);
-		if (canvas && context) {
-			context.getContextAttributes().willReadFrequently = true;
-			canvas.width = width;
-			canvas.height = height;
-			context.drawImage(image, 0, 0, width, height);
-		}
-	}
-
-	const changeImageSize = (event: ChangeEvent<HTMLInputElement>) => {
-		setNoOfCharacters(parseInt(event.target.value));
-
-		const result = imageFile;
-		if (typeof result === 'string') {
-			const image = new Image();
-
-			image.onload = () => {
-				const canvas = canvasRef.current;
-				const context = canvas?.getContext('2d');
-				const [width, height] = clampDimensions(image.width, image.height);
-				if (canvas && context) {
-					context.getContextAttributes().willReadFrequently = true;
-					canvas.width = width;
-					canvas.height = height;
-					context.drawImage(image, 0, 0, width, height);
-				}
-			}
-			image.src = result;
-		}
-	}
-
 	const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
 		event.preventDefault();
 	}
@@ -150,169 +115,183 @@ export function AsciiConverter(): React.JSX.Element {
 
 	const onButtonClick = () => {
 
-		updateImageWithSettings();
-		console.log("No of characters: ", noOfCharacters);
 		const canvas = canvasRef.current;
-		const context = canvasRef.current?.getContext('2d');
+		if (!canvas) return;
+		const context = canvas.getContext('2d');
+		if (!context) return;
+		const image = document.querySelector("img#uploadedImg") as HTMLImageElement;
+		const [width, height] = clampDimensions(image.width, image.height);
 		const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
+
 		const toGrayScale = (r: number, g: number, b: number): number => 0.21 * r + 0.72 * g + 0.07 * b;
 
-		if (canvas && context) {
-			context.getContextAttributes().willReadFrequently = true;
-			setConverted(true);
-			const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-			const grayScales: number[] = [];
-			for (let i = 0; i < imageData.data.length; i += 4) {
-				const r = imageData.data[i];
-				const g = imageData.data[i + 1];
-				const b = imageData.data[i + 2];
-				// alpha is the 4th one, which is why we increment by 4
+		// Updating and redrawing the canvas based on the settings 
 
-				const grayScale: number = toGrayScale(r, g, b);
-				// imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = grayScale;
-				grayScales.push(grayScale);
-			}
-			// context.putImageData(imageData, 0, 0);
+		context.reset();
+		canvas.width = width;
+		canvas.height = height;
+		context.drawImage(image, 0, 0, width, height);
 
-			// Unicode Character “█” (U+2588)
-			const grayRamp = ' .:coPO?@█';
-			const rampLength = grayRamp.length;
+		// Converting the image to grayscale
+		setConverted(true);
+		context.getContextAttributes().willReadFrequently = true;
+		const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+		const grayScales: number[] = [];
+		for (let i = 0; i < imageData.data.length; i += 4) {
+			const r = imageData.data[i];
+			const g = imageData.data[i + 1];
+			const b = imageData.data[i + 2];
+			// alpha is the 4th one, which is why we increment by 4
 
-			const getCharactersForGrayScale = (grayScale: number): string => grayRamp[Math.ceil((rampLength - 1) * grayScale / 255)];
+			const grayScale: number = toGrayScale(r, g, b);
 
-			// Performing edge detection using sobel	
-			const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-			const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+			// Below line is to see the image in grayscale
+			// imageData.data[i] = imageData.data[i + 1] = imageData.data[i + 2] = grayScale;
+			grayScales.push(grayScale);
+		}
+		// Below line is to push the image into canvas
+		// context.putImageData(imageData, 0, 0);
 
-			const edge = new Uint8ClampedArray(canvas.width * canvas.height);
-			const edges: string[] = [];
-			for (let y = 1; y < canvas.height - 1; y++) {
-				for (let x = 1; x < canvas.width - 1; x++) {
-					let gx = 0, gy = 0;
-					for (let ky = -1; ky <= 1; ky++) {
-						for (let kx = -1; kx <= 1; kx++) {
-							const px = x + kx;
-							const py = y + ky;
-							const val = grayScales[py * canvas.width + px];
-							const kernelIdx = (ky + 1) * 3 + (kx + 1);
-							gx += val * sobelX[kernelIdx];
-							gy += val * sobelY[kernelIdx];
-						}
-					}
-					const magnitude = Math.sqrt(gx * gx + gy * gy);
-					edge[y * canvas.width + x] = magnitude > 255 ? 255 : 0;
-					if (magnitude >= 255) {
-						// converting the angle to a range of [0,1]
-						const angle = (Math.atan2(gy, gx) / Math.PI * 0.5) + 0.5;
-						// console.log("Angle", angle);
-						let char = '';
-						if (angle >= 0.45 && angle < 0.55) {
-							// console.log("Angle: ", angle, "Value: '-' ");
-							char = '‼';
-						}
-						else if (angle <= 0.05 && angle > 0.95) {
-							// console.log("Angle: ", angle, "Value: '-' ");
-							char = '‼';
-						}
-						else if (angle >= 0.7 && angle < 0.8) {
-							// console.log("Angle: ", angle, "Value: '|' ");
-							char = '=';
-						}
-						else if (angle >= 0.2 && angle < 0.3) {
-							// console.log("Angle: ", angle, "Value: '|'");
-							char = '=';
-						}
-						else if (angle >= 0.8 && angle < 0.95) {
-							// console.log("Angle: ", angle, "Value: '\\'");
-							char = '\\';
-						}
-						else if (angle < 0.2 && angle > 0.05) {
-							// console.log("Angle: ", angle, "Value: '/'");
-							char = '/';
-						}
-						else if (angle <= 0.7 && angle > 0.55) {
-							// console.log("Angle: ", angle, "Value: '/'");
-							char = '/';
-						}
-						else if (angle > 0.3 && angle < 0.45) {
-							// console.log("Angle: ", angle, "Value: '\\'");
-							char = '\\';
-						}
-						edges[y * canvas.width + x] = char;
-					} else {
-						edges[y * canvas.width + x] = '';
+		// Unicode Character “█” (U+2588)
+		const grayRamp = ' .:coPO?@█';
+		const rampLength = grayRamp.length;
+
+		// Get the appropriate character for the luminence
+		const getCharactersForGrayScale = (grayScale: number): string => grayRamp[Math.ceil((rampLength - 1) * grayScale / 255)];
+
+		// Performing edge detection using sobel	
+		const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+		const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+		const edge = new Uint8ClampedArray(canvas.width * canvas.height);
+		const edges: string[] = [];
+		for (let y = 1; y < canvas.height - 1; y++) {
+			for (let x = 1; x < canvas.width - 1; x++) {
+				let gx = 0, gy = 0;
+				for (let ky = -1; ky <= 1; ky++) {
+					for (let kx = -1; kx <= 1; kx++) {
+						const px = x + kx;
+						const py = y + ky;
+						const val = grayScales[py * canvas.width + px];
+						const kernelIdx = (ky + 1) * 3 + (kx + 1);
+						gx += val * sobelX[kernelIdx];
+						gy += val * sobelY[kernelIdx];
 					}
 				}
-			}
-
-			for (let i = 0; i < grayRamp.length; i++) {
-				const span = document.createElement('span');
-				span.textContent = grayRamp[i];
-				asciiImage.appendChild(span);
-				// console.log("Width of :", grayRamp[i], " is : ", span.getBoundingClientRect().width);
-				asciiImage.removeChild(span);
-			}
-
-			const getCharacterWidth = (character: string): number => {
-				const span = document.createElement('span');
-				span.textContent = character;
-				asciiImage.appendChild(span);
-				const width = span.getBoundingClientRect().width;
-				asciiImage.removeChild(span);
-				return width;
-			}
-
-			// The width of this specific character is different on android
-			// And hence we need to accomodate for it
-			const characterWidth = getCharacterWidth("█");
-
-			// Clear the pre tag	
-			asciiImage.innerHTML = "";
-
-			const drawAscii = (preTag: HTMLPreElement, grayScales: number[], width: number): void => {
-				let imageDataCount = 0;
-				for (let i = 0; i < grayScales.length; i++) {
-					let nextChars = getCharactersForGrayScale(grayScales[i]);
-					// let nextChars = edges[i];
-					if (edgeDetectionEnabled) {
-						if (edges[i] == '‼' || edges[i] == '/' || edges[i] == '\\' || edges[i] == '|' || edges[i] == '=') {
-							nextChars = edges[i];
-						}
+				const magnitude = Math.sqrt(gx * gx + gy * gy);
+				// Only takes the brighest edges
+				edge[y * canvas.width + x] = magnitude > 255 ? 255 : 0;
+				if (magnitude >= 255) {
+					// converting the angle to a range of [0,1]
+					const angle = (Math.atan2(gy, gx) / Math.PI * 0.5) + 0.5;
+					// console.log("Angle", angle);
+					let char = '';
+					if (angle >= 0.45 && angle < 0.55) {
+						// console.log("Angle: ", angle, "Value: '-' ");
+						char = '‼';
 					}
-					const span = document.createElement('span');
-					span.textContent = nextChars;
-					if (characterWidth == 8 && nextChars != "█") {
-						span.style = "letter-spacing: 3.2px;"
+					else if (angle <= 0.05 && angle > 0.95) {
+						// console.log("Angle: ", angle, "Value: '-' ");
+						char = '‼';
 					}
-					if (outputColor == "color") {
+					else if (angle >= 0.7 && angle < 0.8) {
+						// console.log("Angle: ", angle, "Value: '|' ");
+						char = '=';
+					}
+					else if (angle >= 0.2 && angle < 0.3) {
+						// console.log("Angle: ", angle, "Value: '|'");
+						char = '=';
+					}
+					else if (angle >= 0.8 && angle < 0.95) {
+						// console.log("Angle: ", angle, "Value: '\\'");
+						char = '\\';
+					}
+					else if (angle < 0.2 && angle > 0.05) {
+						// console.log("Angle: ", angle, "Value: '/'");
+						char = '/';
+					}
+					else if (angle <= 0.7 && angle > 0.55) {
+						// console.log("Angle: ", angle, "Value: '/'");
+						char = '/';
+					}
+					else if (angle > 0.3 && angle < 0.45) {
+						// console.log("Angle: ", angle, "Value: '\\'");
+						char = '\\';
+					}
+					edges[y * canvas.width + x] = char;
+				} else {
+					edges[y * canvas.width + x] = '';
+				}
+			}
+		}
 
-						span.style.color = `rgb(
+		for (let i = 0; i < grayRamp.length; i++) {
+			const span = document.createElement('span');
+			span.textContent = grayRamp[i];
+			asciiImage.appendChild(span);
+			// console.log("Width of :", grayRamp[i], " is : ", span.getBoundingClientRect().width);
+			asciiImage.removeChild(span);
+		}
+
+		const getCharacterWidth = (character: string): number => {
+			const span = document.createElement('span');
+			span.textContent = character;
+			asciiImage.appendChild(span);
+			const width = span.getBoundingClientRect().width;
+			asciiImage.removeChild(span);
+			return width;
+		}
+
+		// The width of this specific character is different on android
+		// And hence we need to accomodate for it
+		const characterWidth = getCharacterWidth("█");
+
+		// Clear the pre tag	
+		asciiImage.innerHTML = "";
+
+		const drawAscii = (preTag: HTMLPreElement, grayScales: number[], width: number): void => {
+			let imageDataCount = 0;
+			for (let i = 0; i < grayScales.length; i++) {
+				let nextChars = getCharactersForGrayScale(grayScales[i]);
+				// let nextChars = edges[i];
+				if (edgeDetectionEnabled) {
+					if (edges[i] == '‼' || edges[i] == '/' || edges[i] == '\\' || edges[i] == '|' || edges[i] == '=') {
+						nextChars = edges[i];
+					}
+				}
+				const span = document.createElement('span');
+				span.textContent = nextChars;
+				if (characterWidth == 8 && nextChars != "█") {
+					span.style = "letter-spacing: 3.2px;"
+				}
+				if (outputColor == "color") {
+
+					span.style.color = `rgb(
                   ${imageData.data[imageDataCount]}
                   ${imageData.data[imageDataCount + 1]}
                   ${imageData.data[imageDataCount + 2]}
               )`;;
-						imageDataCount += 4;
-					} else {
-						span.style.color = `rgb(
+					imageDataCount += 4;
+				} else {
+					span.style.color = `rgb(
                   ${grayScales[i]}
                   ${grayScales[i]}
                   ${grayScales[i]}
               )`;;
-					}
-					preTag.appendChild(span);
-					// console.log("Width of : ", nextChars, " : ", span.getBoundingClientRect().width);
-					if ((i + 1) % width === 0) {
-						const lineBreak = document.createElement('br');
-						preTag.appendChild(lineBreak);
-					}
 				}
-			};
-
-			if (asciiImage) {
-				drawAscii(asciiImage, grayScales, canvas.width);
+				preTag.appendChild(span);
+				// console.log("Width of : ", nextChars, " : ", span.getBoundingClientRect().width);
+				if ((i + 1) % width === 0) {
+					const lineBreak = document.createElement('br');
+					preTag.appendChild(lineBreak);
+				}
 			}
+		};
 
+		if (asciiImage) {
+			drawAscii(asciiImage, grayScales, canvas.width);
 		}
+
 	}
 
 	const copyTextAndNotify = () => {
@@ -330,7 +309,7 @@ export function AsciiConverter(): React.JSX.Element {
 
 		const canvas = outputCanvasRef.current;
 		if (!canvas) return;
-		const ctx = canvas.getContext('2d');
+		const ctx = canvas.getContext('2d', { willReadFrequently: true });
 		if (!ctx) return;
 		const currentPre = preRef.current;
 		if (!currentPre) return;
@@ -339,7 +318,12 @@ export function AsciiConverter(): React.JSX.Element {
 		const characterHeight = (ctx.measureText("█").actualBoundingBoxAscent + ctx.measureText("█").actualBoundingBoxDescent) + 1;
 
 		canvas.width = noOfCharacters * characterWidth;
-		canvas.height = currentPre.clientHeight;
+
+		if (navigator.userAgent.toLowerCase().indexOf("android") > 0) {
+			canvas.height = currentPre.clientHeight;
+		} else {
+			canvas.height = canvas.width * (currentPre.clientHeight / currentPre.clientWidth);
+		}
 
 		// console.log("Pretag ratio: ", currentPre.clientWidth / currentPre.clientHeight, " Canvas ratio: ", canvas.width / canvas.height);
 
@@ -371,6 +355,7 @@ export function AsciiConverter(): React.JSX.Element {
 		link.download = 'ascii-image_' + Date.now().toString() + '.png';
 		link.href = canvas.toDataURL();;
 		link.click();
+		toast.success("Downloading...");
 	};
 
 	return (
@@ -403,7 +388,7 @@ export function AsciiConverter(): React.JSX.Element {
 							</div>
 						</div>
 						<div className="mt-3 flex">
-							<input type="checkbox" id="edgeDetectionCheckbox" className="p-2" name="edgeDetectionCheckbox" onChange={() => setEdgeDetectionEnabled(!edgeDetectionEnabled)} />
+							<input type="checkbox" id="edgeDetectionCheckbox" className="p-2" checked={edgeDetectionEnabled} name="edgeDetectionCheckbox" onChange={() => setEdgeDetectionEnabled(!edgeDetectionEnabled)} />
 							<label htmlFor="edgeDetectionCheckbox" className="p-1"></label>
 							Enable edge detection
 						</div>
@@ -411,7 +396,7 @@ export function AsciiConverter(): React.JSX.Element {
 							<label htmlFor="characterCountSlider">No of characters per line <br /> {noOfCharacters}</label>
 							<br />
 							<input type="range" name="characterCountSlider" className="w-full" min={50} max={300} value={noOfCharacters} list="values"
-								onChange={(event) => changeImageSize(event)} id="characterCountSlider" />
+								onChange={(event) => setNoOfCharacters(parseInt(event.target.value))} id="characterCountSlider" />
 							<datalist id="values" className="flex w-full gap-1 place-content-between">
 								<option className={noOfCharacters == 50 ? `bg-gray-600 px-1` : `px-1`} value="50" label="50"></option>
 								<option className={noOfCharacters == 100 ? `bg-gray-600 px-1` : `px-1`} value="100" label="100"></option>
