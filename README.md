@@ -18,11 +18,11 @@ https://ascii-art-phi.vercel.app/
 
 > Here's Homer for inspiration:
 
-![Input Image](ascii-art\public\homer_tall.jpeg)
+![Input Image](ascii-art/public/homer_tall.jpeg)
 
 ---
 
 ## 🧾 Output Preview
 
 > Homer in ASCII:
-![Input Image](ascii-art\public\homer_tall_ascii.png)
+![Input Image](ascii-art/public/homer_tall_ascii.png)
