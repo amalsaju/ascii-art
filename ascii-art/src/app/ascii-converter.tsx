@@ -6,7 +6,8 @@ export function AsciiConverter(): React.JSX.Element {
 	const [outputColor, setOutputColor] = useState<string>("color");
 
 	const [converted, setConverted] = useState<boolean>(false);
-
+	const [edgeDetectionEnabled, setEdgeDetectionEnabled] = useState(false);
+	const [noOfCharacters, setNoOfCharacters] = useState(100);
 	// Use this for the next version for custom values 
 	// const [textFontSize, setTextFontSize] = useState<number>(8);
 	// const [textLineHeight, setTextLineHeight] = useState<number>(textFontSize * 1.2);
@@ -21,7 +22,7 @@ export function AsciiConverter(): React.JSX.Element {
 	const textFontSize = 8;
 	const textLineHeight = textFontSize * 1.2;
 	const textLetterSpacing = 0;
-	const noOfCharacters = 100;
+	// const noOfCharacters = 300;
 
 	const handleImageUploadClick = () => {
 		fileInputRef.current?.click();
@@ -55,14 +56,16 @@ export function AsciiConverter(): React.JSX.Element {
 		return getTextFontHeight() / getTextFontWidth();
 	}
 
-	const MAXIMUM_WIDTH = noOfCharacters; // This is essentially the number of characters wide
 	const clampDimensions = (width: number, height: number) => {
 		// MAXIMUM_HEIGHT = MAXIMUM_WIDTH * height / width;
+		const MAXIMUM_WIDTH = noOfCharacters; // This is essentially the number of characters wide
 		console.log("Font Ratio", getTextFontRatio());
 		console.log("Image width: ", width, " Image Height: ", height);
 		console.log("Canvas Width: ", width, " Canvas Height: ", height);
 		console.log(navigator.userAgent.toLowerCase().indexOf("android"));
 		let reducedHeight;
+		// Android render in kinda like squares for some reason
+		// which is why you can't divide by the font ratio
 		if (navigator.userAgent.toLowerCase().indexOf("android") > 0) {
 			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH);
 		} else {
@@ -102,6 +105,41 @@ export function AsciiConverter(): React.JSX.Element {
 		}
 	}
 
+	const updateImageWithSettings = () => {
+		const canvas = canvasRef.current;
+		const context = canvas?.getContext('2d');
+		const image = document.querySelector("img#uploadedImg") as HTMLImageElement;
+		const [width, height] = clampDimensions(image.width, image.height);
+		if (canvas && context) {
+			context.getContextAttributes().willReadFrequently = true;
+			canvas.width = width;
+			canvas.height = height;
+			context.drawImage(image, 0, 0, width, height);
+		}
+	}
+
+	const changeImageSize = (event: ChangeEvent<HTMLInputElement>) => {
+		setNoOfCharacters(parseInt(event.target.value));
+
+		const result = imageFile;
+		if (typeof result === 'string') {
+			const image = new Image();
+
+			image.onload = () => {
+				const canvas = canvasRef.current;
+				const context = canvas?.getContext('2d');
+				const [width, height] = clampDimensions(image.width, image.height);
+				if (canvas && context) {
+					context.getContextAttributes().willReadFrequently = true;
+					canvas.width = width;
+					canvas.height = height;
+					context.drawImage(image, 0, 0, width, height);
+				}
+			}
+			image.src = result;
+		}
+	}
+
 	const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
 		event.preventDefault();
 	}
@@ -112,6 +150,8 @@ export function AsciiConverter(): React.JSX.Element {
 
 	const onButtonClick = () => {
 
+		updateImageWithSettings();
+		console.log("No of characters: ", noOfCharacters);
 		const canvas = canvasRef.current;
 		const context = canvasRef.current?.getContext('2d');
 		const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
@@ -120,7 +160,7 @@ export function AsciiConverter(): React.JSX.Element {
 		if (canvas && context) {
 			context.getContextAttributes().willReadFrequently = true;
 			setConverted(true);
-			const imageData = context?.getImageData(0, 0, canvas.width, canvas.height);
+			const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 			const grayScales: number[] = [];
 			for (let i = 0; i < imageData.data.length; i += 4) {
 				const r = imageData.data[i];
@@ -139,6 +179,71 @@ export function AsciiConverter(): React.JSX.Element {
 			const rampLength = grayRamp.length;
 
 			const getCharactersForGrayScale = (grayScale: number): string => grayRamp[Math.ceil((rampLength - 1) * grayScale / 255)];
+
+			// Performing edge detection using sobel	
+			const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+			const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+
+			const edge = new Uint8ClampedArray(canvas.width * canvas.height);
+			const edges: string[] = [];
+			for (let y = 1; y < canvas.height - 1; y++) {
+				for (let x = 1; x < canvas.width - 1; x++) {
+					let gx = 0, gy = 0;
+					for (let ky = -1; ky <= 1; ky++) {
+						for (let kx = -1; kx <= 1; kx++) {
+							const px = x + kx;
+							const py = y + ky;
+							const val = grayScales[py * canvas.width + px];
+							const kernelIdx = (ky + 1) * 3 + (kx + 1);
+							gx += val * sobelX[kernelIdx];
+							gy += val * sobelY[kernelIdx];
+						}
+					}
+					const magnitude = Math.sqrt(gx * gx + gy * gy);
+					edge[y * canvas.width + x] = magnitude > 255 ? 255 : 0;
+					if (magnitude >= 255) {
+						// converting the angle to a range of [0,1]
+						const angle = (Math.atan2(gy, gx) / Math.PI * 0.5) + 0.5;
+						// console.log("Angle", angle);
+						let char = '';
+						if (angle >= 0.45 && angle < 0.55) {
+							// console.log("Angle: ", angle, "Value: '-' ");
+							char = '‼';
+						}
+						else if (angle <= 0.05 && angle > 0.95) {
+							// console.log("Angle: ", angle, "Value: '-' ");
+							char = '‼';
+						}
+						else if (angle >= 0.7 && angle < 0.8) {
+							// console.log("Angle: ", angle, "Value: '|' ");
+							char = '=';
+						}
+						else if (angle >= 0.2 && angle < 0.3) {
+							// console.log("Angle: ", angle, "Value: '|'");
+							char = '=';
+						}
+						else if (angle >= 0.8 && angle < 0.95) {
+							// console.log("Angle: ", angle, "Value: '\\'");
+							char = '\\';
+						}
+						else if (angle < 0.2 && angle > 0.05) {
+							// console.log("Angle: ", angle, "Value: '/'");
+							char = '/';
+						}
+						else if (angle <= 0.7 && angle > 0.55) {
+							// console.log("Angle: ", angle, "Value: '/'");
+							char = '/';
+						}
+						else if (angle > 0.3 && angle < 0.45) {
+							// console.log("Angle: ", angle, "Value: '\\'");
+							char = '\\';
+						}
+						edges[y * canvas.width + x] = char;
+					} else {
+						edges[y * canvas.width + x] = '';
+					}
+				}
+			}
 
 			for (let i = 0; i < grayRamp.length; i++) {
 				const span = document.createElement('span');
@@ -167,7 +272,13 @@ export function AsciiConverter(): React.JSX.Element {
 			const drawAscii = (preTag: HTMLPreElement, grayScales: number[], width: number): void => {
 				let imageDataCount = 0;
 				for (let i = 0; i < grayScales.length; i++) {
-					const nextChars = getCharactersForGrayScale(grayScales[i]);
+					let nextChars = getCharactersForGrayScale(grayScales[i]);
+					// let nextChars = edges[i];
+					if (edgeDetectionEnabled) {
+						if (edges[i] == '‼' || edges[i] == '/' || edges[i] == '\\' || edges[i] == '|' || edges[i] == '=') {
+							nextChars = edges[i];
+						}
+					}
 					const span = document.createElement('span');
 					span.textContent = nextChars;
 					if (characterWidth == 8 && nextChars != "█") {
@@ -228,7 +339,7 @@ export function AsciiConverter(): React.JSX.Element {
 		const characterHeight = (ctx.measureText("█").actualBoundingBoxAscent + ctx.measureText("█").actualBoundingBoxDescent) + 1;
 
 		canvas.width = noOfCharacters * characterWidth;
-		canvas.height = canvas.width * (currentPre.clientHeight / currentPre.clientWidth);
+		canvas.height = currentPre.clientHeight;
 
 		// console.log("Pretag ratio: ", currentPre.clientWidth / currentPre.clientHeight, " Canvas ratio: ", canvas.width / canvas.height);
 
@@ -236,7 +347,7 @@ export function AsciiConverter(): React.JSX.Element {
 		ctx.setTransform(1, 0, 0, heightScale, 0, 0);
 		ctx.imageSmoothingEnabled = false;
 		ctx.fillStyle = "black";
-		ctx.fillRect(0,0, canvas.width, canvas.height);
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
 		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width);
 
 		let currentChildCount = 0;
@@ -251,18 +362,13 @@ export function AsciiConverter(): React.JSX.Element {
 				ctx.fillStyle = node.style.color;
 				ctx.textBaseline = 'top';
 				ctx.fillText(node.textContent || "", (characterCount % noOfCharacters) * characterWidth, (Math.floor(characterCount / noOfCharacters) * characterHeight));
-				// console.log("Color", ctx.fillStyle, " Fill Text: ", node.textContent, " Pos x: ", (characterCount % noOfCharacters) * characterWidth, " Pos Y: ", (Math.floor(characterCount / noOfCharacters) * characterHeight));
-
 				characterCount++;
-			} else {
-				// This is the br element
-
 			}
 			currentChildCount++;
 		}
 
 		const link = document.createElement('a');
-		link.download = 'ascii-image.png';
+		link.download = 'ascii-image_' + Date.now().toString() + '.png';
 		link.href = canvas.toDataURL();;
 		link.click();
 	};
@@ -272,10 +378,10 @@ export function AsciiConverter(): React.JSX.Element {
 			<div>
 				<h1 className="text-3xl w-full text-center my-10">ASCII Art Generator</h1>
 			</div>
-			<div className="flex flex-col p-[0.5] min-w-[16rem] min-h-[6rem] border-2 border-dashed border-gray-500 rounded-md flex cursor-pointer md:min-w-[32rem] md:max-w-48 justify-center items-center md:w-1/2" onDragOver={handleDragOver} onDrop={handleFileDrop} onClick={handleImageUploadClick}>
+			<div className="flex flex-col p-[0.5] min-w-[16rem] min-h-[6rem] border-2 border-dashed border-gray-500 rounded-md cursor-pointer md:min-w-[32rem] md:max-w-48 justify-center items-center md:w-1/2" onDragOver={handleDragOver} onDrop={handleFileDrop} onClick={handleImageUploadClick}>
 				<div>
 					{imageFile ? (
-						<img className="max-w-48 p-5 rounded-md self-start object-scale-down" src={URL.createObjectURL(imageFile)} alt="Uploaded image" />
+						<img id="uploadedImg" className="max-w-48 p-5 rounded-md self-start object-scale-down" src={URL.createObjectURL(imageFile)} alt="Uploaded image" />
 					) : (
 						<p className="text-center text-md md:text-lg">Click to choose file </p>
 					)}
@@ -285,14 +391,38 @@ export function AsciiConverter(): React.JSX.Element {
 				</div>
 			</div>
 			{imageFile &&
-				<div className="flex gap-4 mt-3">
-					<div>
-						<input type="radio" value="grayscale" name="outputTypeColor" checked={outputColor == "grayscale"} onChange={() => setOutputColor("grayscale")} /> Grayscale
+				<>
+					<div className="flex mt-5 flex-col items-center bg-gray-800 p-4 rounded-md">
+						<h3 className="text-xl">Settings</h3>
+						<div className="flex gap-4 mt-3">
+							<div>
+								<input type="radio" value="grayscale" name="outputTypeColor" checked={outputColor == "grayscale"} onChange={() => setOutputColor("grayscale")} /> Grayscale
+							</div>
+							<div>
+								<input type="radio" value="color" name="outputTypeColor" checked={outputColor == "color"} onChange={() => setOutputColor("color")} /> Color
+							</div>
+						</div>
+						<div className="mt-3 flex">
+							<input type="checkbox" id="edgeDetectionCheckbox" className="p-2" name="edgeDetectionCheckbox" onChange={() => setEdgeDetectionEnabled(!edgeDetectionEnabled)} />
+							<label htmlFor="edgeDetectionCheckbox" className="p-1"></label>
+							Enable edge detection
+						</div>
+						<div className="w-full items-center text-center mt-2">
+							<label htmlFor="characterCountSlider">No of characters per line <br /> {noOfCharacters}</label>
+							<br />
+							<input type="range" name="characterCountSlider" className="w-full" min={50} max={300} value={noOfCharacters} list="values"
+								onChange={(event) => changeImageSize(event)} id="characterCountSlider" />
+							<datalist id="values" className="flex w-full gap-1 place-content-between">
+								<option className={noOfCharacters == 50 ? `bg-gray-600 px-1` : `px-1`} value="50" label="50"></option>
+								<option className={noOfCharacters == 100 ? `bg-gray-600 px-1` : `px-1`} value="100" label="100"></option>
+								<option className={noOfCharacters == 150 ? `bg-gray-600 px-1` : `px-1`} value="150" label="150"></option>
+								<option className={noOfCharacters == 200 ? `bg-gray-600 px-1` : `px-1`} value="200" label="200"></option>
+								<option className={noOfCharacters == 250 ? `bg-gray-600 px-1` : `px-1`} value="250" label="250"></option>
+								<option className={noOfCharacters == 300 ? `bg-gray-600 px-1` : `px-1`} value="300" label="300"></option>
+							</datalist>
+						</div>
 					</div>
-					<div>
-						<input type="radio" value="color" name="outputTypeColor" checked={outputColor == "color"} onChange={() => setOutputColor("color")} /> Color
-					</div>
-				</div>
+				</>
 			}
 			{
 				imageFile &&
@@ -301,16 +431,18 @@ export function AsciiConverter(): React.JSX.Element {
 				</div>
 			}
 			<div>
+				{/* Change the below class to block to see the intermediate picture value */}
 				<canvas className="hidden" ref={canvasRef}></canvas>
 			</div>
 			<div>
+				{/* Change the below class to block to see the output canvas value */}
 				<canvas className="hidden" ref={outputCanvasRef}></canvas>
 			</div>
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="flex">
-							<pre ref={preRef} className="items-center"
+						<div className="text-center">
+							<pre ref={preRef}
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
 						</div>
