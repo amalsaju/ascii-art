@@ -57,12 +57,14 @@ export function AsciiConverter(): React.JSX.Element {
 	}
 
 	const clampDimensions = (width: number, height: number) => {
-		// MAXIMUM_HEIGHT = MAXIMUM_WIDTH * height / width;
-		const MAXIMUM_WIDTH = noOfCharacters; // This is essentially the number of characters wide
-		console.log("Font Ratio", getTextFontRatio());
-		console.log("Image width: ", width, " Image Height: ", height);
-		console.log("Canvas Width: ", width, " Canvas Height: ", height);
-		console.log(navigator.userAgent.toLowerCase().indexOf("android"));
+
+		const MAXIMUM_WIDTH = noOfCharacters;
+
+		// console.log("Font Ratio", getTextFontRatio());
+		// console.log("Image width: ", width, " Image Height: ", height);
+		// console.log("Canvas Width: ", width, " Canvas Height: ", height);
+		// console.log(navigator.userAgent.toLowerCase().indexOf("android"));
+
 		let reducedHeight;
 		// Android render in kinda like squares for some reason
 		// which is why you can't divide by the font ratio
@@ -71,7 +73,7 @@ export function AsciiConverter(): React.JSX.Element {
 		} else {
 			reducedHeight = Math.floor((height / width) * MAXIMUM_WIDTH / getTextFontRatio());
 		}
-		console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
+		// console.log("Width: ", MAXIMUM_WIDTH, " Reduced Height: ", reducedHeight);
 		return [MAXIMUM_WIDTH, reducedHeight];
 	}
 	const updateImage = (event: ChangeEvent<HTMLInputElement>) => {
@@ -297,7 +299,7 @@ export function AsciiConverter(): React.JSX.Element {
 	const copyTextAndNotify = () => {
 		const asciiText = document.querySelector("pre#ascii") as HTMLPreElement;
 		if (asciiText && asciiText.innerText) {
-			console.log(asciiText.innerText.length);
+			// console.log(asciiText.innerText.length);
 			navigator.clipboard.writeText(asciiText.innerText);
 			toast.success("Copied to clipboard!");
 		} else {
