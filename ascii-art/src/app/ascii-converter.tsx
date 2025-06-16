@@ -1,6 +1,7 @@
 'use client'
 import { ChangeEvent, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
+
 export function AsciiConverter(): React.JSX.Element {
 	const [imageFile, setImageFile] = useState<File | null>(null);
 	const [outputColor, setOutputColor] = useState<string>("color");
@@ -327,14 +328,12 @@ export function AsciiConverter(): React.JSX.Element {
 			canvas.height = canvas.width * (currentPre.clientHeight / currentPre.clientWidth);
 		}
 
-		// console.log("Pretag ratio: ", currentPre.clientWidth / currentPre.clientHeight, " Canvas ratio: ", canvas.width / canvas.height);
-
 		const heightScale = canvas.height / (characterHeight * (currentPre.innerText.length / noOfCharacters));
 		ctx.setTransform(1, 0, 0, heightScale, 0, 0);
 		ctx.imageSmoothingEnabled = false;
-		ctx.fillStyle = "black";
+		ctx.fillStyle = "black"; // Some browsers | platforms render the background as transparent and its gets grayed out
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
-		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width);
+		// console.log("Canvas Height: ", canvas.height, " Width: ", canvas.width, "Height Scale: ", heightScale);
 
 		let currentChildCount = 0;
 		let characterCount = 0;
@@ -428,8 +427,8 @@ export function AsciiConverter(): React.JSX.Element {
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="text-center">
-							<pre ref={preRef}
+						<div className="text-center place-items-center">
+							<pre ref={preRef} className="w-fit"
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
 						</div>
