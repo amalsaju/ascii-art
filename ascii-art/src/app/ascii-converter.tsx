@@ -9,11 +9,6 @@ export function AsciiConverter(): React.JSX.Element {
 	const [converted, setConverted] = useState<boolean>(false);
 	const [edgeDetectionEnabled, setEdgeDetectionEnabled] = useState(false);
 	const [noOfCharacters, setNoOfCharacters] = useState(100);
-	// Use this for the next version for custom values 
-	// const [textFontSize, setTextFontSize] = useState<number>(8);
-	// const [textLineHeight, setTextLineHeight] = useState<number>(textFontSize * 1.2);
-	// const [textLetterSpacing, setTextLetterSpacing] = useState<number>(0);
-	// const [noOfCharacters, setNoOfCharacters] = useState<number>(50);
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,11 +55,6 @@ export function AsciiConverter(): React.JSX.Element {
 	const clampDimensions = (width: number, height: number) => {
 
 		const MAXIMUM_WIDTH = noOfCharacters;
-
-		// console.log("Font Ratio", getTextFontRatio());
-		// console.log("Image width: ", width, " Image Height: ", height);
-		// console.log("Canvas Width: ", width, " Canvas Height: ", height);
-		// console.log(navigator.userAgent.toLowerCase().indexOf("android"));
 
 		let reducedHeight;
 		// Android render in kinda like squares for some reason
@@ -427,8 +417,8 @@ export function AsciiConverter(): React.JSX.Element {
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="text-center place-items-center">
-							<pre ref={preRef} className="w-fit"
+						<div className="place-items-center">
+							<pre ref={preRef} className="w-fit max-w-full"
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
 						</div>
