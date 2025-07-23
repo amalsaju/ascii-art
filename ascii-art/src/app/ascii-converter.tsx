@@ -1,6 +1,17 @@
 'use client'
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
+// import { TransformComponent, TransformWrapper, useControls } from "react-zoom-pan-pinch";
+
+// // const Controls = () => {
+// // 	const { centerView, resetTransform } = useControls();
+
+// // 	return (
+// // 		<>
+// // 			<button onClick={() => resetTransform()}>Reset Transform</button>
+// // 		</>
+// // 	)
+// // }
 
 export function AsciiConverter(): React.JSX.Element {
 	const [imageFile, setImageFile] = useState<File | null>(null);
@@ -14,11 +25,31 @@ export function AsciiConverter(): React.JSX.Element {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const preRef = useRef<HTMLPreElement>(null);
 	const outputCanvasRef = useRef<HTMLCanvasElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+
+	const generateButton = useRef<HTMLButtonElement>(null);
+
+	const enum States {
+		IDLE,
+		GENERATING,
+		DONE,
+		ERROR
+	}
+	const [actionState, setActionState] = useState<States>(States.IDLE);
 
 	const textFontSize = 8;
 	const textLineHeight = textFontSize * 1.2;
 	const textLetterSpacing = 0;
-	// const noOfCharacters = 300;
+
+	useEffect(() => {
+
+		if (actionState != States.GENERATING) return;
+		const timeout = setTimeout(() => {
+			generateAsciiArt();
+		}, 200);
+
+		return () => clearTimeout(timeout);
+	}, [actionState]);
 
 	const handleImageUploadClick = () => {
 		fileInputRef.current?.click();
@@ -69,6 +100,8 @@ export function AsciiConverter(): React.JSX.Element {
 	}
 	const updateImage = (event: ChangeEvent<HTMLInputElement>) => {
 		if (event.target.files && event.target.files[0]) {
+
+			setActionState(States.IDLE);
 			const asciiImage = document.querySelector("pre#ascii") as HTMLPreElement;
 			asciiImage.innerHTML = "";
 			const file = event.target.files[0];
@@ -106,8 +139,9 @@ export function AsciiConverter(): React.JSX.Element {
 		event.preventDefault();
 	}
 
-	const onButtonClick = () => {
+	const generateAsciiArt = async () => {
 
+		generateButton.current?.blur();
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const context = canvas.getContext('2d');
@@ -177,38 +211,29 @@ export function AsciiConverter(): React.JSX.Element {
 				if (magnitude >= 255) {
 					// converting the angle to a range of [0,1]
 					const angle = (Math.atan2(gy, gx) / Math.PI * 0.5) + 0.5;
-					// console.log("Angle", angle);
 					let char = '';
 					if (angle >= 0.45 && angle < 0.55) {
-						// console.log("Angle: ", angle, "Value: '-' ");
 						char = '‼';
 					}
 					else if (angle <= 0.05 && angle > 0.95) {
-						// console.log("Angle: ", angle, "Value: '-' ");
 						char = '‼';
 					}
 					else if (angle >= 0.7 && angle < 0.8) {
-						// console.log("Angle: ", angle, "Value: '|' ");
 						char = '=';
 					}
 					else if (angle >= 0.2 && angle < 0.3) {
-						// console.log("Angle: ", angle, "Value: '|'");
 						char = '=';
 					}
 					else if (angle >= 0.8 && angle < 0.95) {
-						// console.log("Angle: ", angle, "Value: '\\'");
 						char = '\\';
 					}
 					else if (angle < 0.2 && angle > 0.05) {
-						// console.log("Angle: ", angle, "Value: '/'");
 						char = '/';
 					}
 					else if (angle <= 0.7 && angle > 0.55) {
-						// console.log("Angle: ", angle, "Value: '/'");
 						char = '/';
 					}
 					else if (angle > 0.3 && angle < 0.45) {
-						// console.log("Angle: ", angle, "Value: '\\'");
 						char = '\\';
 					}
 					edges[y * canvas.width + x] = char;
@@ -284,7 +309,7 @@ export function AsciiConverter(): React.JSX.Element {
 		if (asciiImage) {
 			drawAscii(asciiImage, grayScales, canvas.width);
 		}
-
+		setActionState(States.DONE);
 	}
 
 	const copyTextAndNotify = () => {
@@ -403,7 +428,7 @@ export function AsciiConverter(): React.JSX.Element {
 			{
 				imageFile &&
 				<div className="my-10">
-					<button onClick={onButtonClick} className="rounded-xl bg-blue-800 p-4 cursor-pointer hover:bg-blue-600">Convert to ASCII</button>
+					<button ref={generateButton} onClick={() => setActionState(States.GENERATING)} disabled={actionState == States.GENERATING} className="rounded-md p-4 cursor-pointer bg-blue-500 hover:bg-blue-600 disabled:opacity-50 border-b-4 border-blue-700 hover:border-blue-900">Convert to ASCII</button>
 				</div>
 			}
 			<div>
@@ -416,25 +441,36 @@ export function AsciiConverter(): React.JSX.Element {
 			</div>
 			<div className="flex gap-4 mb-20">
 				<div className="flex flex-col gap-2 items-center">
+					{actionState == States.GENERATING &&
+						<div>
+							Generating...
+						</div>}
+					{actionState == States.DONE && <div>(Pan around if the image is not visible)</div>}
 					<div className="mb-5 h-[300px] w-[300px] overflow-scroll md:h-full md:w-full md:overflow-auto text-nowrap">
-						<div className="place-items-center">
+						<div ref={containerRef} className="place-items-center">
+							{/* <TransformWrapper initialScale={1} minScale={0.1}
+								centerZoomedOut={actionState == States.DONE} >
+								{actionState == States.DONE && <Controls />}
+								<TransformComponent > */}
 							<pre ref={preRef} className="w-fit max-w-full"
 								style={{ fontSize: `${textFontSize}px`, lineHeight: `${textLineHeight}px`, letterSpacing: `${textLetterSpacing}px` }}
 								id="ascii"></pre>
+							{/* </TransformComponent>
+							</TransformWrapper> */}
 						</div>
 					</div>
 					{converted &&
 						<div className="flex flex-row gap-2 mx-4">
 							<div className="">
-								<button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-2 md:p-4" onClick={downloadImage}>Download as image</button>
+								<button className="rounded-md p-2 md:p-4 cursor-pointer bg-blue-500 hover:bg-blue-600 disabled:opacity-50 border-b-4 border-blue-700 hover:border-blue-900" onClick={downloadImage}>Download as image</button>
 							</div>
 							<div className="">
-								<button className="rounded-xl bg-blue-800 hover:bg-blue-600 p-2 md:p-4" onClick={copyTextAndNotify}>Copy to clipboard</button>
-								<ToastContainer autoClose={2000} />
+								<button className="rounded-md p-2 md:p-4 cursor-pointer bg-blue-500 hover:bg-blue-600 disabled:opacity-50 border-b-4 border-blue-700 hover:border-blue-900" onClick={copyTextAndNotify}>Copy to clipboard</button>
 							</div>
 						</div>}
+					<ToastContainer autoClose={2000} />
 				</div>
 			</div>
-		</div>
+		</div >
 	)
 }
